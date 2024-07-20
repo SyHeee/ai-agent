@@ -1,3 +1,4 @@
+# Modified on https://github.com/JayZeeDesign/microsoft-autogen-experiments/blob/main/content_agent.py
 import os
 from autogen import config_list_from_json
 import autogen
@@ -16,6 +17,8 @@ from langchain import PromptTemplate
 import openai
 from dotenv import load_dotenv
 
+from web_search_utils import search, scrape
+
 # Get API key
 load_dotenv()
 config_list = config_list_from_json(env_or_file="OAI_CONFIG_LIST")
@@ -24,64 +27,9 @@ AUTOGEN_USE_DOCKER = str(os.environ["AUTOGEN_USE_DOCKER"])
 formatted_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 dir_name = "work_dir"+"_"+formatted_datetime
 
-# Define research function
-
-
-def search(query):
-    url = "https://google.serper.dev/search"
-
-    payload = json.dumps({
-        "q": query
-    })
-    headers = {
-        'X-API-KEY': 'ab179d0f00ae0bafe47f77e09e62b9f53b3f281d',
-        'Content-Type': 'application/json'
-    }
-
-    response = requests.request("POST", url, headers=headers, data=payload)
-
-    return response.json()
-
-
-def scrape(url: str):
-    # scrape website, and also will summarize the content based on objective if the content is too large
-    # objective is the original objective & task that user give to the agent, url is the url of the website to be scraped
-
-    print("Scraping website...")
-    # Define the headers for the request
-    headers = {
-        'Cache-Control': 'no-cache',
-        'Content-Type': 'application/json',
-    }
-
-    # Define the data to be sent in the request
-    data = {
-        "url": url
-    }
-
-    # Convert Python object to JSON string
-    data_json = json.dumps(data)
-
-    # Send the POST request
-    response = requests.post(
-        "https://chrome.browserless.io/content?token=2db344e9-a08a-4179-8f48-195a2f7ea6ee", headers=headers, data=data_json)
-
-    # Check the response status code
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.content, "html.parser")
-        text = soup.get_text()
-        print("CONTENTTTTTT:", text)
-        if len(text) > 8000:
-            output = summary(text)
-            return output
-        else:
-            return text
-    else:
-        print(f"HTTP request failed with status code {response.status_code}")
-
 
 def summary(content):
-    llm = ChatOpenAI(temperature=0, model="gpt-3.5-turbo-16k-0613")
+    llm = ChatOpenAI(temperature=0, model="gpt-4o-mini")
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n", "\n"], chunk_size=10000, chunk_overlap=500)
     docs = text_splitter.create_documents([content])
