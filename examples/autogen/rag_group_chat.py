@@ -1,5 +1,7 @@
 # Modified on https://github.com/JayZeeDesign/microsoft-autogen-experiments/blob/main/content_agent.py
 import os
+import sys
+from datetime import datetime
 from autogen import config_list_from_json
 import autogen
 
@@ -7,52 +9,17 @@ import requests
 from bs4 import BeautifulSoup
 import json
 
-from datetime import datetime
-
-from langchain.agents import initialize_agent
-from langchain.chat_models import ChatOpenAI
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.chains.summarize import load_summarize_chain
-from langchain import PromptTemplate
-import openai
 from dotenv import load_dotenv
 
-from web_search_utils import search, scrape
+from web_search_tools import search, scrape, summary
+from utils import Tee
 
 # Get API key
 load_dotenv()
 config_list = config_list_from_json(env_or_file="OAI_CONFIG_LIST")
-openai.api_key = os.getenv("OPENAI_API_KEY")
 AUTOGEN_USE_DOCKER = str(os.environ["AUTOGEN_USE_DOCKER"])
 formatted_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 dir_name = "work_dir"+"_"+formatted_datetime
-
-
-def summary(content):
-    llm = ChatOpenAI(temperature=0, model="gpt-4o-mini")
-    text_splitter = RecursiveCharacterTextSplitter(
-        separators=["\n\n", "\n"], chunk_size=10000, chunk_overlap=500)
-    docs = text_splitter.create_documents([content])
-    map_prompt = """
-    Write a detailed summary of the following text for a research purpose:
-    "{text}"
-    SUMMARY:
-    """
-    map_prompt_template = PromptTemplate(
-        template=map_prompt, input_variables=["text"])
-
-    summary_chain = load_summarize_chain(
-        llm=llm,
-        chain_type='map_reduce',
-        map_prompt=map_prompt_template,
-        combine_prompt=map_prompt_template,
-        verbose=True
-    )
-
-    output = summary_chain.run(input_documents=docs,)
-
-    return output
-
 
 def research(query):
     llm_config_researcher = {
@@ -149,7 +116,7 @@ def write_content(research_material, topic):
     groupchat = autogen.GroupChat(
         agents=[user_proxy, editor, writer, reviewer],
         messages=[],
-        max_round=3)
+        max_round=2)
     manager = autogen.GroupChatManager(groupchat=groupchat)
 
     user_proxy.initiate_chat(
@@ -162,59 +129,68 @@ def write_content(research_material, topic):
     # return the last message the expert received
     return user_proxy.last_message()["content"]
 
-
-# Define content assistant agent
-llm_config_content_assistant = {
-    "functions": [
-        {
-            "name": "research",
-            "description": "research about a given topic, return the research material including reference links",
-            "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "The topic to be researched about",
-                        }
-                    },
-                "required": ["query"],
-            },
-        },
-        {
-            "name": "write_content",
-            "description": "Write content based on the given research material & topic",
-            "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "research_material": {
-                            "type": "string",
-                            "description": "research material of a given topic, including reference links when available",
+def main():
+    # Define content assistant agent
+    llm_config_content_assistant = {
+        "functions": [
+            {
+                "name": "research",
+                "description": "research about a given topic, return the research material including reference links",
+                "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The topic to be researched about",
+                            }
                         },
-                        "topic": {
-                            "type": "string",
-                            "description": "The topic of the content",
-                        }
-                    },
-                "required": ["research_material", "topic"],
+                    "required": ["query"],
+                },
             },
-        },
-    ],
-    "config_list": config_list}
+            {
+                "name": "write_content",
+                "description": "Write content based on the given research material & topic",
+                "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "research_material": {
+                                "type": "string",
+                                "description": "research material of a given topic, including reference links when available",
+                            },
+                            "topic": {
+                                "type": "string",
+                                "description": "The topic of the content",
+                            }
+                        },
+                    "required": ["research_material", "topic"],
+                },
+            },
+        ],
+        "config_list": config_list}
 
-writing_assistant = autogen.AssistantAgent(
-    name="writing_assistant",
-    system_message="You are a writing assistant, you can use research function to collect latest information about a given topic, and then use write_content function to write a very well written content; Reply TERMINATE when your task is done",
-    llm_config=llm_config_content_assistant,
-)
+    writing_assistant = autogen.AssistantAgent(
+        name="writing_assistant",
+        system_message="You are a writing assistant, you can use research function to collect latest information about a given topic, and then use write_content function to write a very well written content; Reply TERMINATE when your task is done",
+        llm_config=llm_config_content_assistant,
+    )
 
-user_proxy = autogen.UserProxyAgent(
-    name="User_proxy",
-    human_input_mode="TERMINATE",
-    function_map={
-        "write_content": write_content,
-        "research": research,
-    }
-)
+    user_proxy = autogen.UserProxyAgent(
+        name="User_proxy",
+        human_input_mode="TERMINATE",
+        function_map={
+            "write_content": write_content,
+            "research": research,
+        }
+    )    
+    user_proxy.initiate_chat(
+        writing_assistant, message="write a blog about autogen multi AI agent framework")
 
-user_proxy.initiate_chat(
-    writing_assistant, message="write a blog about autogen multi AI agent framework")
+if __name__ == "__main__":
+    output_name = "output"
+    output_name += "_" + formatted_datetime
+    with open(output_name+'.txt', 'w') as f:
+        # Create a Tee object to write to both sys.stdout and the file
+        tee = Tee(sys.stdout, f)
+        # Redirect sys.stdout to the Tee object
+        sys.stdout = tee
+        main()

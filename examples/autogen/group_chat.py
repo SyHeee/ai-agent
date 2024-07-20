@@ -48,9 +48,9 @@ def main():
                     help="filename that has the message to initiate the chat")
     args = parser.parse_args()
     filename = args.filename
-    output_name = "output" 
-    if filename:
-        output_name += "_" + formatted_datetime
+    output_name = "output"
+    output_name += "_" + formatted_datetime
+    if filename:        
         try:
             with open(filename, 'r',encoding='utf-8') as file:
                 message = file.read().strip()
