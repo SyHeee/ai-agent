@@ -1,0 +1,36 @@
+# Log files
+*.log
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+.DS_Store
+
+# local config files
+*.config.local
+OAI_CONFIG_LIST
+key_openai.txt
+key_aoai.txt
+base_aoai.txt
+wolfram.txt
+
+# test cache
+.cache_test
+.db
+local_cache
