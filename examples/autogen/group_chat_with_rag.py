@@ -1,25 +1,26 @@
-# Modified on https://github.com/JayZeeDesign/microsoft-autogen-experiments/blob/main/content_agent.py
 import os
 import sys
 from datetime import datetime
 from autogen import config_list_from_json
 import autogen
+from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
+from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 
 import requests
 from bs4 import BeautifulSoup
 import json
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 from web_search_tools import search, scrape, summary
 from utils import Tee
 
 # Get API key
-load_dotenv()
+load_dotenv(find_dotenv())
 config_list = config_list_from_json(env_or_file="OAI_CONFIG_LIST")
 AUTOGEN_USE_DOCKER = str(os.environ["AUTOGEN_USE_DOCKER"])
 formatted_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
-dir_name = "work_dir"+"_"+formatted_datetime
+dir_name = "rag_work_dir"+"_"+formatted_datetime
 
 def research(query):
     llm_config_researcher = {
