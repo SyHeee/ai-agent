@@ -56,7 +56,12 @@ def scrape(url: str):
         # Extract the text from the parsed HTML
         text = soup.get_text(separator=' ', strip=True)
         
-        return text
+        if len(text) > 4000:
+            output = summary(text)
+            return output
+        else:
+            return text
+                
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")
         return None
